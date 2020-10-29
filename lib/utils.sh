@@ -1220,17 +1220,32 @@ check_aa_status ()
 # Example: $1='AllowUsers'  $2='AllowUsers[[:space:]]*\*'
 check_sshd_access_limit ()
 {
-	if [ $(sshd -T | grep -ic $1) -eq 1 ]; then 
-		if [ $(sshd -T | grep -ic $2) -eq 1 ]; then 
-			debug "$1 is not set limit!"
-			FNRET=2
-		else
-			debug "$1 has set limit!"
-			FNRET=0
-		fi
+    if [ $(sshd -T | grep -ic $1) -eq 1 ]; then 
+	if [ $(sshd -T | grep -ic $2) -eq 1 ]; then 
+	    debug "$1 is not set limit!"
+	    FNRET=2
 	else
-		debug "Arguments $1 is not exist! By default, login is allowed for all."
-		FNRET=1
+	    debug "$1 has set limit!"
+	    FNRET=0
 	fi
+    else
+	debug "Arguments $1 is not exist! By default, login is allowed for all."
+	FNRET=1
+    fi
 }
 
+# Check the value of an SSHD parameter
+# Once a user restriction is configured, need to specify a user to check params
+check_sshd_parameter()
+{
+    local PATTERN="$1"
+    
+    debug "Checking for $PATTERN in SSHD configuration"
+
+    debug "sshd -T -C user=root | grep -qiE -- '$PATTERN'"
+    if $(sshd -T -C user=root | grep -qiE -- "$PATTERN"); then
+        FNRET=0
+    else
+        FNRET=1
+    fi
+}
