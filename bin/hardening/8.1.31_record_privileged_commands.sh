@@ -17,7 +17,9 @@ HARDENING_LEVEL=4
 AUDIT_PARAMS=$(find / -xdev \( -perm -4000 -o -perm -2000 \) -type f | awk '{print \
 "-a always,exit -F path=" $1 " -F perm=x -F auid>=1000 -F auid!=4294967295 \
 -k privileged" }')
+
 FILE='/etc/audit/rules.d/audit.rules'
+FILESET='/etc/audit/rules.d/*.rules'
 
 # This function will be called if the script status is on enabled / audit mode
 audit () {
@@ -26,15 +28,15 @@ audit () {
     c_IFS=$'\n'
     IFS=$c_IFS
     for AUDIT_VALUE in $AUDIT_PARAMS; do
-        debug "$AUDIT_VALUE should be in file $FILE"
+        debug "$AUDIT_VALUE should be in file $FILESET"
         IFS=$d_IFS
-		RESULT=$(echo $AUDIT_VALUE | awk -F"-F" '{print $2}' | awk -F"=" '{print $2}')
-		does_valid_pattern_exist_in_file $FILE "$RESULT"
+	RESULT=$(echo $AUDIT_VALUE | awk -F"-F" '{print $2}' | awk -F"=" '{print $2}')
+	does_valid_line_exist_in_fileset "$FILESET" "$RESULT"
         IFS=$c_IFS
         if [ $FNRET != 0 ]; then
-            crit "$RESULT is not in file $FILE"
+            crit "$RESULT is not in file $FILESET"
         else
-            ok "$RESULT is present in $FILE"
+            ok "$RESULT is present in $FILESET"
         fi
     done
     IFS=$d_IFS
@@ -44,15 +46,15 @@ audit () {
 apply () {
     IFS=$'\n'
     for AUDIT_VALUE in $AUDIT_PARAMS; do
-        debug "$AUDIT_VALUE should be in file $FILE"
-		RESULT=$(echo $AUDIT_VALUE | awk -F"-F" '{print $2}' | awk -F"=" '{print $2}')
-		does_valid_pattern_exist_in_file $FILE "$RESULT"
+        debug "$AUDIT_VALUE should be in file $FILESET"
+	RESULT=$(echo $AUDIT_VALUE | awk -F"-F" '{print $2}' | awk -F"=" '{print $2}')
+	does_valid_line_exist_in_fileset "$FILESET" "$RESULT"
         if [ $FNRET != 0 ]; then
-            warn "$AUDIT_VALUE is not in file $FILE, adding it"
+            warn "$AUDIT_VALUE is not in file $FILESET, adding it to $FILE"
             add_end_of_file $FILE $AUDIT_VALUE
-			check_auditd_is_immutable_mode
+	    check_auditd_is_immutable_mode
         else
-            ok "$AUDIT_VALUE is present in $FILE"
+            ok "$AUDIT_VALUE is present in $FILESET"
         fi
     done
 }
@@ -67,8 +69,8 @@ if [ -r /etc/default/cis-hardening ]; then
     . /etc/default/cis-hardening
 fi
 if [ -z "$CIS_ROOT_DIR" ]; then
-     echo "There is no /etc/default/cis-hardening file nor cis-hardening directory in current environment."
-     echo "Cannot source CIS_ROOT_DIR variable, aborting."
+    echo "There is no /etc/default/cis-hardening file nor cis-hardening directory in current environment."
+    echo "Cannot source CIS_ROOT_DIR variable, aborting."
     exit 128
 fi
 

@@ -36,37 +36,39 @@ AA_AUDIT_PARAMS='-w /etc/apparmor/ -p wa -k MAC-policy
 -a always,exit -F path=/sbin/apparmor_parser -F perm=x -F auid>=1000 -F auid!=4294967295 -k MAC-policy'
 
 FILE='/etc/audit/rules.d/audit.rules'
+FILESET='/etc/audit/rules.d/*.rules'
 
 # This function will be called if the script status is on enabled / audit mode
 audit () {
-	# Set default to apparmor 
-	AUDIT_PARAMS=$AA_AUDIT_PARAMS
+    # Set default to apparmor 
+    AUDIT_PARAMS=$AA_AUDIT_PARAMS
     # define custom IFS and save default one
     d_IFS=$IFS
     IFS=$'\n'
-	if [ $OS_RELEASE -eq 2 ]; then 
-		SELINUX_PKG=$SELINUX_PKG_CENTOS
-	fi
-	is_pkg_installed $SELINUX_PKG
+    if [ $OS_RELEASE -eq 2 ]; then 
+	SELINUX_PKG=$SELINUX_PKG_CENTOS
+    fi
+    is_pkg_installed $SELINUX_PKG
+    if [ $FNRET = 0 ]; then
+	AUDIT_PARAMS=$SE_AUDIT_PARAMS
+	info "SELinux has installed!"
+    else
+	is_pkg_installed $APPARMOR_PKG
 	if [ $FNRET = 0 ]; then
-		AUDIT_PARAMS=$SE_AUDIT_PARAMS
-		info "SELinux has installed!"
+	    AUDIT_PARAMS=$AA_AUDIT_PARAMS
+	    info "Apparmor has installed!"
 	else
-		is_pkg_installed $APPARMOR_PKG
-		if [ $FNRET = 0 ]; then
-			AUDIT_PARAMS=$AA_AUDIT_PARAMS
-			info "Apparmor has installed!"
-		else
-			crit "SELinux and Apparmor not install!"
-		fi
+	    crit "SELinux and Apparmor not install!"
 	fi
+    fi
+    
     for AUDIT_VALUE in $AUDIT_PARAMS; do
-        debug "$AUDIT_VALUE should be in file $FILE"
-        does_pattern_exist_in_file $FILE "$AUDIT_VALUE"
+        debug "$AUDIT_VALUE should be in file $FILESET"
+        does_valid_line_exist_in_fileset "$FILESET" "$AUDIT_VALUE"
         if [ $FNRET != 0 ]; then
-            crit "$AUDIT_VALUE is not in file $FILE"
+            crit "$AUDIT_VALUE is not in file $FILESET"
         else
-            ok "$AUDIT_VALUE is present in $FILE"
+            ok "$AUDIT_VALUE is present in $FILESET"
         fi
     done
     IFS=$d_IFS
@@ -76,31 +78,31 @@ audit () {
 apply () {
     d_IFS=$IFS
     IFS=$'\n'
-	if [ $OS_RELEASE -eq 2 ]; then 
-		SELINUX_PKG=$SELINUX_PKG_CENTOS
-	fi
-	is_pkg_installed $SELINUX_PKG
+    if [ $OS_RELEASE -eq 2 ]; then 
+	SELINUX_PKG=$SELINUX_PKG_CENTOS
+    fi
+    is_pkg_installed $SELINUX_PKG
+    if [ $FNRET = 0 ]; then
+	AUDIT_PARAMS=$SE_AUDIT_PARAMS
+	info "SELinux has installed!"
+    else
+	is_pkg_installed $APPARMOR_PKG
 	if [ $FNRET = 0 ]; then
-		AUDIT_PARAMS=$SE_AUDIT_PARAMS
-		info "SELinux has installed!"
+	    AUDIT_PARAMS=$AA_AUDIT_PARAMS
+	    info "Apparmor has installed!"
 	else
-		is_pkg_installed $APPARMOR_PKG
-		if [ $FNRET = 0 ]; then
-			AUDIT_PARAMS=$AA_AUDIT_PARAMS
-			info "Apparmor has installed!"
-		else
-			crit "SELinux and Apparmor not install!"
-		fi
+	    crit "SELinux and Apparmor not install!"
 	fi
+    fi
     for AUDIT_VALUE in $AUDIT_PARAMS; do
-        debug "$AUDIT_VALUE should be in file $FILE"
-        does_pattern_exist_in_file $FILE "$AUDIT_VALUE"
+        debug "$AUDIT_VALUE should be in file $FILESET"
+        does_valid_line_exist_in_fileset "$FILESET" "$AUDIT_VALUE"
         if [ $FNRET != 0 ]; then
-            warn "$AUDIT_VALUE is not in file $FILE, adding it"
+            warn "$AUDIT_VALUE is not in file $FILESET, adding it to $FILE"
             add_end_of_file $FILE $AUDIT_VALUE
-			check_auditd_is_immutable_mode
+	    check_auditd_is_immutable_mode
         else
-            ok "$AUDIT_VALUE is present in $FILE"
+            ok "$AUDIT_VALUE is present in $FILESET"
         fi
     done
     IFS=$d_IFS
@@ -116,8 +118,8 @@ if [ -r /etc/default/cis-hardening ]; then
     . /etc/default/cis-hardening
 fi
 if [ -z "$CIS_ROOT_DIR" ]; then
-     echo "There is no /etc/default/cis-hardening file nor cis-hardening directory in current environment."
-     echo "Cannot source CIS_ROOT_DIR variable, aborting."
+    echo "There is no /etc/default/cis-hardening file nor cis-hardening directory in current environment."
+    echo "Cannot source CIS_ROOT_DIR variable, aborting."
     exit 128
 fi
 

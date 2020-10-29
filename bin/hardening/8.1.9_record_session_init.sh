@@ -19,23 +19,25 @@ AUDIT_PARAMS='-w /var/run/utmp -p wa -k session
 -w /var/log/btmp -p wa -k session'
 AUDIT_PARAMS_CENTOS='-w /var/log/wtmp -p wa -k session
 -w /var/log/btmp -p wa -k session'
+
 FILE='/etc/audit/rules.d/audit.rules'
+FILESET='/etc/audit/rules.d/*.rules'
 
 # This function will be called if the script status is on enabled / audit mode
 audit () {
-	if [ $OS_RELEASE -eq 2 ]; then
-		AUDIT_PARAMS=$AUDIT_PARAMS_CENTOS
-	fi
+    if [ $OS_RELEASE -eq 2 ]; then
+	AUDIT_PARAMS=$AUDIT_PARAMS_CENTOS
+    fi
     # define custom IFS and save default one
     d_IFS=$IFS
     IFS=$'\n'
     for AUDIT_VALUE in $AUDIT_PARAMS; do
-        debug "$AUDIT_VALUE should be in file $FILE"
-        does_pattern_exist_in_file $FILE "$AUDIT_VALUE"
+        debug "$AUDIT_VALUE should be in file $FILESET"
+        does_valid_line_exist_in_fileset "$FILESET" "$AUDIT_VALUE"
         if [ $FNRET != 0 ]; then
-            crit "$AUDIT_VALUE is not in file $FILE"
+            crit "$AUDIT_VALUE is not in file $FILESET"
         else
-            ok "$AUDIT_VALUE is present in $FILE"
+            ok "$AUDIT_VALUE is present in $FILESET"
         fi
     done
     IFS=$d_IFS
@@ -43,20 +45,20 @@ audit () {
 
 # This function will be called if the script status is on enabled mode
 apply () {
-	if [ $OS_RELEASE -eq 2 ]; then
-		AUDIT_PARAMS=$AUDIT_PARAMS_CENTOS
-	fi
+    if [ $OS_RELEASE -eq 2 ]; then
+	AUDIT_PARAMS=$AUDIT_PARAMS_CENTOS
+    fi
     d_IFS=$IFS
     IFS=$'\n'
     for AUDIT_VALUE in $AUDIT_PARAMS; do
-        debug "$AUDIT_VALUE should be in file $FILE"
-        does_pattern_exist_in_file $FILE "$AUDIT_VALUE"
+        debug "$AUDIT_VALUE should be in file $FILESET"
+        does_valid_line_exist_in_fileset "$FILESET" "$AUDIT_VALUE"
         if [ $FNRET != 0 ]; then
-            warn "$AUDIT_VALUE is not in file $FILE, adding it"
+            warn "$AUDIT_VALUE is not in file $FILESET, adding it to $FILE"
             add_end_of_file $FILE $AUDIT_VALUE
-			check_auditd_is_immutable_mode
+	    check_auditd_is_immutable_mode
         else
-            ok "$AUDIT_VALUE is present in $FILE"
+            ok "$AUDIT_VALUE is present in $FILESET"
         fi
     done
     IFS=$d_IFS
@@ -72,8 +74,8 @@ if [ -r /etc/default/cis-hardening ]; then
     . /etc/default/cis-hardening
 fi
 if [ -z "$CIS_ROOT_DIR" ]; then
-     echo "There is no /etc/default/cis-hardening file nor cis-hardening directory in current environment."
-     echo "Cannot source CIS_ROOT_DIR variable, aborting."
+    echo "There is no /etc/default/cis-hardening file nor cis-hardening directory in current environment."
+    echo "Cannot source CIS_ROOT_DIR variable, aborting."
     exit 128
 fi
 

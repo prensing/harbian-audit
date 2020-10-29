@@ -221,7 +221,7 @@ does_valid_pattern_exist_in_file() {
     debug "Checking if $PATTERN is present in $FILE"
     if $SUDO_CMD [ -r "$FILE" ] ; then
         debug "$SUDO_CMD sed '/^#/d' $FILE | sed '/^$/d' | grep -c '$PATTERN'"
-		if [ $($SUDO_CMD sed '/^#/d' $FILE | sed '/^$/d' | grep -c "$PATTERN") -gt 0 ]; then
+	if [ $($SUDO_CMD sed '/^#/d' $FILE | sed '/^$/d' | grep -c "$PATTERN") -gt 0 ]; then
             FNRET=0
         else
             FNRET=1
@@ -230,6 +230,28 @@ does_valid_pattern_exist_in_file() {
         debug "File $FILE is not readable!"
         FNRET=2
     fi
+}
+
+# Check after deleting blank lines and comment lines
+does_valid_line_exist_in_fileset() {
+    local FILESET=$1
+    local LINE=$2
+    local FILE
+    
+    debug "Checking if $LINE is present in $FILESET"
+    FNRET=1
+    for FILE in $FILESET; do
+        if $SUDO_CMD [ -r "$FILE" ] ; then
+            debug "$SUDO_CMD sed '/^#/d' $FILE | sed '/^[[:space:]]*$/d' | grep -Fq --'$LINE'"
+	    if $($SUDO_CMD sed '/^#/d' $FILE | sed '/^[[:space:]]*$/d' | grep -Fq -- "$LINE"); then
+                FNRET=0
+                break
+            fi
+        else
+            debug "File $FILE is not readable!"
+            FNRET=2
+        fi
+    done
 }
 
 add_end_of_file() {
